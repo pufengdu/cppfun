@@ -22,7 +22,7 @@ struct Box{
 int main() {
     int a[] = {1, 2, 3, 4};
     int b[] = {5, 6, 7, 8, 9};
-    Box{a} = b; // Yes, we can not do a = b. But, we can do Box{a} = b;
+    Box{a} = b; // We can not do a = b. But, we can do Box{a} = b;
     for (auto &p: a)
         cout << p << endl;
     return 0;
