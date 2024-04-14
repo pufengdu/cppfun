@@ -1,8 +1,7 @@
 /****************************************************************************
  * notype.h - Copyright 2021 Pufeng Du, Ph.D.                               *
  *                                                                          *
- * This file is a toy in playing with "dynamic reflection" in cpp           *
- * notype.h is free software: you can redistribute it and/or modify         *
+ * The notype.h is free software: you can redistribute it and/or modify     *
  * it under the terms of the GNU General Public License as published by     *
  * the Free Software Foundation, either version 3 of the License, or        *
  * (at your option) any later version.                                      *
