@@ -17,3 +17,6 @@ This is NOT a reflection implementation.
 
 It is just a TOY.
 
+## podobject.cpp
+
+A proof of concept for extending basic data types in C++. A simple quick and dirty demo of concept to wrap and add member functions for types like int, char, float. 
