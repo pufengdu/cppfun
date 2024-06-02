@@ -5,6 +5,10 @@ This repo is just for fun.
 
 A common stream output template for all types of array. It is just a toy.
 
+## arrayshape.cpp
+
+A toy to extract shape data of a multi-dimensional array for using in runtime.
+
 ## box.cpp
 
 A box object that can hold all types of pod object. Allow some weired things to be done.
