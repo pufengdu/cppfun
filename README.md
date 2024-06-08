@@ -24,3 +24,7 @@ It is just a TOY.
 ## podobject.cpp
 
 A proof of concept for extending basic data types in C++. A simple quick and dirty demo of concept to wrap and add member functions for types like int, char, float. 
+
+## utf8.cpp
+
+A demo for programming in Chinese in Codeblocks. This needs C++20 / UTF-8 compiler, and Windows 10. I do not use Windows 11. I have no idea how to configure that registry options in Windows 11.
