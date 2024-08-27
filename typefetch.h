@@ -10,6 +10,9 @@
  *     https://stackoverflow.com/questions/65190015/c-type-loophole-explanation
  *     https://alexpolt.github.io/type-loophole.html
  *     https://www.zhihu.com/question/663583917/answer/3590252149
+ *     Usage: 
+ *       BIND_TYPE(type_name, expression_to_extract_type, unique_id_for_the_type)
+ *       BIND_TYPE must be used in file scope, out of all fucntions.
  */
 
 #include <iostream>
