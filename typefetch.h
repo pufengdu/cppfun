@@ -35,7 +35,7 @@ struct type_fetch_t{
 #define BIND_TYPE(TYPENAME, EXPR, TYPE_ID) \
 auto internal_type(tag<TYPE_ID>); \
 template struct type_fetch_t<decltype(EXPR), TYPE_ID>; \
-using method_t = decltype(internal_type(tag<TYPE_ID>{}));
+using TYPENAME = decltype(internal_type(tag<TYPE_ID>{}));
 
 /*
 // This is a use case, to extract the type of a private
