@@ -44,3 +44,38 @@ template struct type_fetch_t<decltype(EXPR), TYPE_ID>; \
 using TYPENAME = decltype(internal_type(tag<TYPE_ID>{}));
 
 #endif // TYPEFETCH_H_INCLUDED
+
+/*
+
+// This is a use case, to extract the type of a private
+// member function of a given class A. The type of the
+// private member function is binded with an alias
+// method_t.
+
+#include <iostream>
+#include "typefetch.h"
+using namespace std;
+
+class A{
+private:
+    int a_private_method();
+};
+
+BIND_TYPE(method_t, A::a_private_method, 0);
+
+template<typename T>
+string CompileTimeTypeName() {
+    string func_name = __PRETTY_FUNCTION__;
+    size_t _s = func_name.find("T = ") + 4;
+    size_t _e = func_name.find(";", _s);
+    string r = func_name.substr(_s, _e - _s);
+    return r;
+}
+
+int main() {
+    // The output should be
+    // int (A::*)()
+    cout << CompileTimeTypeName<method_t>() << endl;
+}
+
+*/
