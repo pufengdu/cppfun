@@ -35,6 +35,7 @@ struct tag{};
 
 template <typename T, size_t N>
 struct type_fetch_t{
+    // This assumes that T supports default aggregate initialization
     friend auto internal_type(tag<N>){return T{};}
 };
 
