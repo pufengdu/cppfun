@@ -51,7 +51,8 @@ using TYPENAME = decltype(internal_type(tag<TYPE_ID>{}));
 // This is a use case, to extract the type of a private
 // member function of a given class A. The type of the
 // private member function is binded with an alias
-// method_t.
+// method_t. Please note that the private member does not
+// need to be implemented.
 
 #include <iostream>
 #include "typefetch.h"
