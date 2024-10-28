@@ -9,6 +9,10 @@ A common stream output template for all types of array. It is just a toy.
 
 A toy to extract shape data of a multi-dimensional array for using in runtime.
 
+## bintypes.cpp
+
+A toy for beginners to see binary encodings of POD arithmetic types, like int and float.
+
 ## box.cpp
 
 A box object that can hold all types of pod object. Allow some weired things to be done.
