@@ -76,6 +76,42 @@ This is NOT a reflection implementation.
 
 It is just a TOY.
 
+Try it with the following codes (Compiled with -std=c++20 -Wa,-mbig-obj):
+
+```cpp
+#include <iostream>
+#include <cstdint>
+#include "notype.h"
+using namespace std;
+
+struct Vec2D{
+    int x;
+    int y;
+};
+
+ostream &operator<< (ostream &o, const Vec2D &k){
+    return o << k.x << ',' << k.y;
+}
+
+istream &operator>> (istream &i, Vec2D &k) {
+    return i >> k.x >> k.y;
+}
+
+int main(){
+    var::init();
+    var x = Vec2D(2, 4);
+    cout << x << endl;
+    x = 10;
+    cout << x << endl;
+    x = 5.5;
+    cout << x << endl;
+    x = "Hello";
+    cout << x << endl;
+    return 0;
+}
+
+```
+
 ## podobject.cpp
 
 A proof of concept for extending basic data types in C++. A simple quick and dirty demo of concept to wrap and add member functions for types like int, char, float. 
