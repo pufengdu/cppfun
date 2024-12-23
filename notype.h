@@ -106,14 +106,14 @@ struct _Value: public _void{
     const char *getRunTimeTypeName() override { return type_index(typeid(ValueType)).name(); }
     void *getAddress() noexcept override { return &_data; }
     operator bool() {
-        if constexpr (is_convertible<ValueType, bool>::value)
+        /*if constexpr (is_convertible<ValueType, bool>::value)
             return static_cast<bool>(_data);
-        else{
+        else{*/
             bool r = false;
             auto p = reinterpret_cast<const uint8_t(*)[sizeof(_data)]>(&_data);
             for (auto &i: *p) r |= !!i;
             return r;
-        }
+        //}
     }
     ostream &output(ostream &o) override { return o << _data; }
     istream &input(istream &i) override { return i >> _data; }
