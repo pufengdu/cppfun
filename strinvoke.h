@@ -22,7 +22,7 @@
     
     For all C++ newbies, there is alway a dream. Get a function name by cin and execute 
     this function at runtime. This seems to be a funny or maybe stupid idea in eyes of 
-    people understand more C++. However, this worth a header file. Because it is a 
+    people who understand more C++. To me, this worth a header file. Because it is a 
     question that can we invoke functions and pass arguments to functions all by strings
     at runtime. Someone may directly refer this to the great OOP term "reflection", which
     will become reality in C++26 (Please check with those C++ gods). Not long, right? On 
