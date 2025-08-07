@@ -116,6 +116,90 @@ int main(){
 
 A proof of concept for extending basic data types in C++. A simple quick and dirty demo of concept to wrap and add member functions for types like int, char, float. 
 
+## strinvoke.h
+
+A candy for newbie to invoke "ALL" functions using strings, which can be obtained at runtime from cin. Never think this TOY as something related to reflection.
+
+```cpp
+#include <iostream>
+#include <vector>
+#include "strinvoke.h"
+
+// We need C++20
+// add -std=c++20 to your compiler
+using namespace std;
+
+// Some tests for basic types:
+int fx(int a, float b, char c){
+    cout << a << endl << b << endl << c << endl;
+    return 100;
+}
+
+int fy(double a){
+    cout << a << endl;
+    return 100;
+}
+
+void fz(){
+    cout <<  100 << endl;
+}
+
+// Some tests using user-defined classes
+struct Vec2D{
+    int x, y;
+};
+// For this to work, we need these stream operators
+ostream &operator<< (ostream &o, const Vec2D &v){
+    return o << v.x << ' ' << v.y;
+}
+
+istream &operator>> (istream &i, Vec2D &v){
+    return i >> v.x >> v.y;
+}
+// For example: a function
+Vec2D SumVec(Vec2D a, Vec2D b){
+    Vec2D r;
+    r.x = a.x + b.x;
+    r.y = a.y + b.y;
+    return r;
+}
+
+/* 
+    Here is the usage:
+    step 1, export all functions that need to be invoke-by-strings by macors export_function(function_name)
+    you only need names here.
+    step 2, call these functions by strings, using the ibsCall function, the first parameter is the stringify 
+    function name, others are stringify arguments, in a vector<string> container.
+    step 3, the returned value will also be stringify. You will need to parse it yourself.
+    Note:
+        1 Currently, we do not overload.
+        2 All types of returned value and parameters of your "exported function" must be "streamable", as we 
+        defined in concepts.
+        3 you may pass more strings than need, first ones will be applied. 
+        4 you cannot pass less strings than need, runtime error will be thrown.
+*/
+int main() {
+    export_function(fx);
+    export_function(fy);
+    export_function(fz);
+    export_function(SumVec);
+    vector<string> x = {"11.01","12.22","foo"};
+    vector<string> y = {"11","12"};
+    // Most simple case
+    cout << ibsCall("fz", x) << endl;
+    // Call fx
+    cout << ibsCall("fx", x) << endl;
+    // Call fx using this form
+    cout << ibsCall({"fx", "11.01","12.22","bar"}) << endl;
+    // Call fy
+    cout << ibsCall ("fy", y) << endl;
+    // Try some Vectors
+    cout << ibsCall({"SumVec", "1 2", "2 3"}) << endl;
+    return 0;
+}
+
+```
+
 ## typefetch.h
 
 Bind almost any type to an alias name. A proof of concept with the 'loophole' skills. This is NOT for any production use. This is NOT supported officially by standard, although this works in GCC.
