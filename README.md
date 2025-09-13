@@ -116,6 +116,49 @@ int main(){
 
 A proof of concept for extending basic data types in C++. A simple quick and dirty demo of concept to wrap and add member functions for types like int, char, float. 
 
+## podout.h
+
+A quick and dirty reflection of pod objects using c++20. With this header, you may stream out pod objects directly. Try it with the following code. Read comments in the header before you want to use it in other places. 
+
+```cpp
+#include <iostream>
+#include "podout.h"
+using namespace std;
+
+struct score_sheet_t{
+    double math;
+    double english;
+    double sport;
+};
+
+struct student_t{
+    int id;
+    const char *name;
+    score_sheet_t score;
+    bool gender;
+};
+
+int main(){
+    student_t students[] = {
+        {1, "Alice", { 100, 90.5, 87.5 }, 1},
+        {2, "Bob", { 95, 77, 59.5 } , 0},
+        {3, "Chalie", { 100, 81.2, 89.5 }, 0},
+        {4, "David", { 78, 66, 100 }, 0}
+    };
+/* 
+    The output will be like:
+
+    [ 1 Alice [ 100 90.5 87.5 ] 1 ]
+    [ 2 Bob [ 95 77 59.5 ] 0 ]
+    [ 3 Chalie [ 100 81.2 89.5 ] 0 ]
+    [ 4 David [ 78 66 100 ] 0 ]
+*/
+    for (auto s: students)
+        cout << s << endl;
+    return 0;
+}
+```
+
 ## strinvoke.h
 
 A candy for newbie to invoke "ALL" functions using strings, which can be obtained at runtime from cin. Never think this TOY as something related to reflection.
