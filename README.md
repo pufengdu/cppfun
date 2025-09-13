@@ -153,8 +153,8 @@ int main(){
     [ 3 Chalie [ 100 81.2 89.5 ] 0 ]
     [ 4 David [ 78 66 100 ] 0 ]
 */
-    for (auto s: students)
-        cout << s << endl;
+    for (auto &s: students)
+        cout << s << endl; // All dark-arts go from here...
     return 0;
 }
 ```
