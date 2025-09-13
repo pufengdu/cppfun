@@ -118,7 +118,7 @@ A proof of concept for extending basic data types in C++. A simple quick and dir
 
 ## podout.h
 
-A quick and dirty reflection of pod objects using c++20. With this header, you may stream out pod objects directly. Try it with the following code. Read comments in the header before you want to use it in other places. 
+A quick and dirty reflection of pod objects using c++20. With this header, you may stream out pod objects directly. Try it with the following code. Read comments in the header before you want to use it in other places. This needs C++20, add the compile option yourself.
 
 ```cpp
 #include <iostream>
