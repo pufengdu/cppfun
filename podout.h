@@ -42,11 +42,12 @@
 #define _PODOUT_H_
 
 #include <iostream>
-#include <tuple>
-#include <string_view>
-#include <vector>
 #include <sstream>
-using namespace std;
+#include <utility>
+#include <stdexcept>
+#include <type_traits>
+#include <tuple>
+#include <array>
 
 template <typename S>
 constexpr auto reflect(const S &s = {});
@@ -55,26 +56,20 @@ template <typename S>
 bool is_reflected = false;
 
 template <typename T>
-concept is_stream_readable = requires (T &a) { 
-    declval<istream &>() >> a; 
-};
+concept is_stream_readable = requires (std::istream &is, T &a) {  is >> a; };
 
 template <typename T>
-concept is_stream_writable = requires (const T &a) { 
-    declval<ostream &>() << a; 
-};
+concept is_stream_writable = requires (std::ostream &os, const T &a) { os << a; };
 
 template <typename S, typename... Ts>
-concept is_aggregatable = requires (){
-    S { Ts{}... };
-};
+concept is_aggregatable = requires (){ { S { Ts{}... } } -> std::same_as<S>; };
 
 template<typename T>
-string_view typename_to_string(){
-    string_view func_name = __PRETTY_FUNCTION__; 
+std::string typename_to_string(){
+    std::string func_name = __PRETTY_FUNCTION__; 
     size_t _s = func_name.find("T = ") + 4;
     size_t _e = func_name.find(";", _s);
-    string_view r = func_name.substr(_s, _e - _s);
+    std::string r = func_name.substr(_s, _e - _s);
     return r;
 }
 
@@ -110,12 +105,12 @@ struct void_struct_t{};
 
 template <typename S, size_t n = 0, typename M = void_struct_t<S>, 
     typename... Ts > 
-    requires (is_trivial_v<M> && is_standard_layout_v<S>)
+    requires (std::is_trivial_v<M> && std::is_standard_layout_v<S>)
 struct auto_t{
     template <typename U> 
-        requires (is_standard_layout_v<U>)
+        requires (std::is_standard_layout_v<U>)
     constexpr operator U() noexcept {
-        if constexpr (is_class_v<U>){
+        if constexpr (std::is_class_v<U>){
             if (!is_reflected< U >)
                 reflect<U>();
         }
@@ -145,7 +140,7 @@ struct auto_t{
         // members of S by using friend injections. Below struct MUST be called 
         // in this way or using the sizeof() expression, so that causing friend
         // functions to be injected into the file scope.
-            make_tuple_from_struct <S, tuple<Ts (S::*)..., U (S::*)> >{};
+            make_tuple_from_struct <S, std::tuple<Ts (S::*)..., U (S::*)> >{};
         return U{};
     }
 };
@@ -153,19 +148,22 @@ struct auto_t{
 template <typename S, size_t I>
 struct member_t{
     using type = decltype(member_type(member_tag_t<S, I>{}));
-    // I have no way to make offset constexpr
     static type S::* ptr;
     static size_t offset;
-    static string name;
+    static std::string name;
 };
+
 template <typename S, size_t I>
 member_t<S, I>::type S::* member_t<S, I>:: ptr = reinterpret_cast< 
-    member_t<S, I>:: type S::*
->( member_type_ptr( member_tag_t<S, I>{} ) );
+    member_t<S, I>::type S::*>( 
+        member_type_ptr( member_tag_t<S, I>{} ) 
+    );
 template <typename S, size_t I>
-size_t member_t<S, I>::offset = *(size_t*)(&member_t<S, I>::ptr);
+size_t member_t<S, I>::offset = *reinterpret_cast<size_t*>(
+    &member_t<S, I>::ptr
+);
 template <typename S, size_t I>
-string member_t<S, I>::name;
+std::string member_t<S, I>::name;
 
 template <typename S>
 struct class_t{
@@ -176,29 +174,29 @@ struct class_t{
     const S &_object;
     
     using tuple_type = decltype(struct_to_tuple(tag_t<S>{}));
-    using offset_list_type = vector<size_t>;
-    using name_list_type = vector<string>;
-    static constexpr size_t member_count = tuple_size<tuple_type>();
+    static constexpr size_t member_count = std::tuple_size_v<tuple_type>;
+    using offset_list_type = std::array<size_t, member_count>;
+    using name_list_type = std::array<std::string, member_count>;
     
     static offset_list_type offsets;
     static tuple_type ptrs;
     static name_list_type names;
 
     template <size_t... ids>
-    static constexpr auto get_offset(index_sequence<ids...>){
+    static constexpr auto get_offset(std::index_sequence<ids...>){
         return offset_list_type{ member_t<S, ids>::offset... };
     }
     
     template <size_t... ids>
-    static auto get_ptrs(index_sequence<ids...>){
+    static auto get_ptrs(std::index_sequence<ids...>){
         return tuple_type{ member_t<S, ids>::ptr... };
     }
 
-    template <size_t n = 0, typename N0 = string, typename... Args>
+    template <size_t n = 0, typename N0 = std::string, typename... Args>
     static auto set_member_names(N0 n0 = "", Args... ns){
         if constexpr (n < member_count){
             member_t<S, n>::name = n0;
-            names.emplace_back(n0);
+            names[n] = n0;
         }
         if constexpr (sizeof...(ns) > 0)
             return set_member_names<n + 1>(ns...);
@@ -206,45 +204,45 @@ struct class_t{
             return n;
     }
 
-    template <size_t n = 0, typename N = string>
-    string get_member_by_name_as_str(const N &nx){
+    template <size_t n = 0, typename N = std::string>
+    std::string get_member_by_name_as_str(const N &nx){
         if constexpr (n < member_count){
-            using member_type_as = decltype(_object.*get<n>(ptrs));
+            using member_type_as = decltype(_object.*std::get<n>(ptrs));
             if (member_t<S, n>::name == nx){
                 if constexpr (is_stream_writable < member_type_as >)
-                    return (stringstream() << (_object.*get<n>(ptrs))).str();
+                    return (std::stringstream() << (_object.*std::get<n>(ptrs))).str();
                 else
                     return "";
             }
             return get_member_by_name_as_str<n + 1>(nx);
         }
         else
-            throw runtime_error("Unable to find member by name");
+            throw std::runtime_error("Unable to find member by name");
     }
 
-    template <size_t n = 0, typename N = string>
-    void set_member_by_name_from_str(const N &nx, const string &s){
+    template <size_t n = 0, typename N = std::string>
+    void set_member_by_name_from_str(const N &nx, const std::string &s){
         if constexpr (n < member_count){
-            using member_type_mutable = remove_cvref_t<
-                decltype(_object.*get<n>(ptrs))
+            using member_type_mutable = std::remove_cvref_t<
+                decltype(_object.*std::get<n>(ptrs))
             >;
             if (member_t<S, n>::name == nx) {
                 if constexpr ( is_stream_readable<member_type_mutable> )
-                    stringstream(s) >> const_cast<member_type_mutable&>(
-                        _object.*get<n>(ptrs)
+                    std::stringstream(s) >> const_cast<member_type_mutable&>(
+                        _object.*std::get<n>(ptrs)
                     );
                 return;
             }
             set_member_by_name_from_str< n + 1 >(nx, s);
         }
         else 
-            throw runtime_error("Unable to find member by name");
+            throw std::runtime_error("Unable to find member by name");
     }
 
     template <size_t n = 0> 
     bool for_each(auto func){
         if constexpr (n < member_count){
-            func(_object.*get<n>(ptrs));
+            func(_object.*std::get<n>(ptrs));
             return for_each< n + 1>(func);
         }
         else
@@ -253,18 +251,18 @@ struct class_t{
 };
 template <typename S>
 class_t<S>::offset_list_type class_t<S>::offsets = class_t<S>::get_offset(
-    make_index_sequence<class_t<S>::member_count>{}
+    std::make_index_sequence<class_t<S>::member_count>{}
 );
 template <typename S>
 class_t<S>::tuple_type class_t<S>::ptrs = class_t<S>::get_ptrs(
-    make_index_sequence<class_t<S>::member_count>{}
+    std::make_index_sequence<class_t<S>::member_count>{}
 );
 template <typename S>
 class_t<S>::name_list_type class_t<S>::names;
 
 template <typename S>
-    requires (is_class_v<S> && is_standard_layout_v<S> && is_trivial_v<S>)
-ostream &operator<< (ostream &o, const S &a){
+    requires (std::is_class_v<S> && std::is_standard_layout_v<S> && std::is_trivial_v<S>)
+std::ostream &operator<< (std::ostream &o, const S &a){
     auto stream_out_action = [&](auto &p){ o << p << ' '; };
     o << "[ ";
     reflect(a).for_each(stream_out_action);
@@ -273,8 +271,8 @@ ostream &operator<< (ostream &o, const S &a){
 }
 
 template <typename S>
-    requires (is_class_v<S> && is_standard_layout_v<S> && is_trivial_v<S>)
-istream &operator>> (istream &i, S &a){
+    requires (std::is_class_v<S> && std::is_standard_layout_v<S> && std::is_trivial_v<S>)
+std::istream &operator>> (std::istream &i, S &a){
     auto stream_in_action = [&](auto &p){ i >> p; };
     reflect(a).for_each(stream_in_action);
     return i;
