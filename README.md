@@ -158,10 +158,10 @@ int main(){
     test_array_t t{1, "Name = Nancy", 98.4};
     cout << t << endl;
     student_t students[] = {
-        {1, "Alice", { 100, 90.5, 87.5 }, 1},
-        {2, "Bob", { 95, 77, 59.5 } , 0},
+        {1, "Alice",  { 100, 90.5, 87.5 }, 1},
+        {2, "Bob",    {  95,   77, 59.5 }, 0},
         {3, "Chalie", { 100, 81.2, 89.5 }, 0},
-        {4, "David", { 78, 66, 100 }, 0}
+        {4, "David",  {  78,   66,  100 }, 0}
     };
     for (auto &s: students)
         cout << s << endl;
