@@ -122,6 +122,7 @@ A quick and dirty reflection of pod objects using c++20. With this header, you m
 
 ```cpp
 #include <iostream>
+#include <array>
 #include "podout.h"
 using namespace std;
 
@@ -138,23 +139,40 @@ struct student_t{
     bool gender;
 };
 
+struct test_array_t{
+    int a;
+    array<char, 16> b;
+    float c;
+};
+
+struct x_t{
+    template <typename U> requires (is_standard_layout_v<U>)
+    constexpr operator U() noexcept {
+        cout << typename_to_string<U>() << endl;
+        return U{};
+    }
+};
+
+/******************************************** 
+The output will be like:
+
+[ 1 [ N a m e   =   N a n c y     ] 98.4 ]
+[ 1 Alice [ 100 90.5 87.5 ] 1 ]
+[ 2 Bob [ 95 77 59.5 ] 0 ]
+[ 3 Chalie [ 100 81.2 89.5 ] 0 ]
+[ 4 David [ 78 66 100 ] 0 ]
+*********************************************/
 int main(){
+    test_array_t t{1, "Name = Nancy", 98.4};
+    cout << t << endl;
     student_t students[] = {
         {1, "Alice", { 100, 90.5, 87.5 }, 1},
         {2, "Bob", { 95, 77, 59.5 } , 0},
         {3, "Chalie", { 100, 81.2, 89.5 }, 0},
         {4, "David", { 78, 66, 100 }, 0}
     };
-/* 
-    The output will be like:
-
-    [ 1 Alice [ 100 90.5 87.5 ] 1 ]
-    [ 2 Bob [ 95 77 59.5 ] 0 ]
-    [ 3 Chalie [ 100 81.2 89.5 ] 0 ]
-    [ 4 David [ 78 66 100 ] 0 ]
-*/
     for (auto &s: students)
-        cout << s << endl; // All dark-arts go from here...
+        cout << s << endl;
     return 0;
 }
 ```
