@@ -145,14 +145,6 @@ struct test_array_t{
     float c;
 };
 
-struct x_t{
-    template <typename U> requires (is_standard_layout_v<U>)
-    constexpr operator U() noexcept {
-        cout << typename_to_string<U>() << endl;
-        return U{};
-    }
-};
-
 /******************************************** 
 The output will be like:
 
