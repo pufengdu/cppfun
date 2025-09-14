@@ -64,6 +64,11 @@ concept is_stream_writable = requires (const T &a) {
     declval<ostream &>() << a; 
 };
 
+template <typename S, typename... Ts>
+concept is_aggregatable = requires (){
+    S { Ts{}... };
+};
+
 template<typename T>
 string_view typename_to_string(){
     string_view func_name = __PRETTY_FUNCTION__; 
@@ -121,7 +126,7 @@ struct auto_t{
         // construct a struct according to S. The member pointer to each member 
         // is binary compatible to its offset.
         using type_S = struct: public M { U _t; };
-        
+
         // This saves the n-th member of S by using pointer-to-member of type_S.
         // Since type_S is not S, we can not save offsets of each member in a 
         // constexpr static member. But, this will delay the specialization of 
@@ -131,7 +136,7 @@ struct auto_t{
         // Try construction incrementally, to iterate over all members of S 
         // recursively.
         using next_t = auto_t<S, n + 1, type_S, Ts..., U>;
-        if constexpr (is_constructible_v<S, Ts..., U, next_t> )
+        if constexpr (is_aggregatable<S, Ts..., U, next_t> )
         // By instantiating S with more initilizers, we use the U() function to 
         // iterate over types of all S members.
             S { Ts{}..., U{}, next_t{} };
