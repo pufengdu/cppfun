@@ -53,13 +53,20 @@ template <typename S>
 constexpr auto reflect(const S &s = {});
 
 template <typename S>
+struct void_struct_t{};
+
+template <typename S>
 bool is_reflected = false;
 
 template <typename T>
-concept is_stream_readable = requires (std::istream &is, T &a) {  is >> a; };
+concept is_stream_readable = requires (std::istream &is, T &a) {
+    is >> a;
+};
 
 template <typename T>
-concept is_stream_writable = requires (std::ostream &os, const T &a) { os << a; };
+concept is_stream_writable = requires (std::ostream &os, const T &a) { 
+    os << a;
+};
 
 template <typename S, typename... Ts>
 concept is_aggregatable = requires (){ { S { Ts{}... } } -> std::same_as<S>; };
@@ -73,6 +80,48 @@ std::string typename_to_string(){
     return r;
 }
 
+// Begin: scope_cast
+// scope_cast<destination_scope_class>(source_scope_class_member_ptr)
+// This is to convert any pod struct member ptr to another class pod member ptr
+// at compile time. There is no restriction to the relationship between the two
+// classes.
+template <typename A, typename B>
+struct class_link: public A, public B{};
+
+template <typename MP>
+struct class_from_member_ptr;
+
+template <typename M, typename S>
+struct class_from_member_ptr<M S::*>{ using type = std::remove_cvref_t<S>; };
+
+// The member ptr p in the deep auto_t operator U was converted first by the 
+// injected friend funtions to the void_struct_t<REF_STRUCT>, which is empty.
+// By using the class_link, the member ptr of the void_struct_t<REF_STRUCT> was
+// transferred to the member ptr of the REF_STRUCT, which is TD in this func.
+// All these type conversions happen at compile time. 
+template <typename TD>
+constexpr auto scope_cast(const auto &p){
+    using MP = std::remove_cvref_t<decltype(p)>;
+    using S = typename class_from_member_ptr<MP>::type;
+    static_assert(std::is_empty_v<S>,
+        "The scope_cast needs a member ptr in an empty class");
+    using D = std::remove_cvref_t<TD>;
+    using M = std::remove_cvref_t<
+        decltype(std::declval<S>().*std::declval<MP>())
+    >;
+    using scope_link_t = class_link < D, S >;
+    return 
+        static_cast<M (D::*)>(
+            static_cast<M (scope_link_t::*)>(p)
+        );
+};
+// End: scope_cast
+
+// Begin: Friend injections
+// Notes: This is pure dark-arts. I mean it. This is not supported by the 
+// standard. If someday the committee decided to forbid such things, that 
+// means they finally cast a Avada Kedavra to us, who rely serioursly on this 
+// type loophole. Surely, C++26 meta/reflexpr will replace all of these.
 // Stateful meta programming using the type loophole. We use friend injections 
 // to save types at compile time. Get yourself prepared to see many warnings...
 // Or, you should add -Wno-non-template-friend to your compile options. I assume
@@ -90,19 +139,20 @@ struct make_tuple_from_struct{
 
 template <typename S, size_t I>
 struct member_tag_t{
-    friend auto constexpr member_type_ptr(member_tag_t<S, I>);
+    friend auto constexpr member_ptr_type(member_tag_t<S, I>);
     friend auto constexpr member_type(member_tag_t<S, I>);
 };
 
 template <typename S, size_t I, typename M, typename Mp, Mp p >
 struct save_member_type{
-    friend auto constexpr member_type_ptr(member_tag_t<S, I>){ return p; }
+    friend auto constexpr member_ptr_type(member_tag_t<S, I>){ 
+        return static_cast <M void_struct_t<S>::* >(p);
+    }
     friend auto constexpr member_type(member_tag_t<S, I>){ return M{}; }
 };
+// End: Friend injections
 
-template <typename S>
-struct void_struct_t{};
-
+// Begin: POD reflection facilities
 template <typename S, size_t n = 0, typename M = void_struct_t<S>, 
     typename... Ts > 
     requires (std::is_trivial_v<M> && std::is_standard_layout_v<S>)
@@ -120,7 +170,7 @@ struct auto_t{
         // type_S object is trivial. All offsets are obtained by inheritence to 
         // construct a struct according to S. The member pointer to each member 
         // is binary compatible to its offset.
-        using type_S = struct: public M { U _t; };
+        struct type_S: public M { U _t; };
 
         // This saves the n-th member of S by using pointer-to-member of type_S.
         // Since type_S is not S, we can not save offsets of each member in a 
@@ -148,20 +198,11 @@ struct auto_t{
 template <typename S, size_t I>
 struct member_t{
     using type = decltype(member_type(member_tag_t<S, I>{}));
-    static type S::* ptr;
-    static size_t offset;
+    static constexpr type S::* ptr = scope_cast<S>(
+        member_ptr_type(member_tag_t <S, I>{})
+    );
     static std::string name;
 };
-
-template <typename S, size_t I>
-member_t<S, I>::type S::* member_t<S, I>:: ptr = reinterpret_cast< 
-    member_t<S, I>::type S::*>( 
-        member_type_ptr( member_tag_t<S, I>{} ) 
-    );
-template <typename S, size_t I>
-size_t member_t<S, I>::offset = *reinterpret_cast<size_t*>(
-    &member_t<S, I>::ptr
-);
 template <typename S, size_t I>
 std::string member_t<S, I>::name;
 
@@ -172,25 +213,20 @@ struct class_t{
             reflect<S>();
     }
     const S &_object;
-    
-    using tuple_type = decltype(struct_to_tuple(tag_t<S>{}));
-    static constexpr size_t member_count = std::tuple_size_v<tuple_type>;
-    using offset_list_type = std::array<size_t, member_count>;
-    using name_list_type = std::array<std::string, member_count>;
-    
-    static offset_list_type offsets;
-    static tuple_type ptrs;
-    static name_list_type names;
 
     template <size_t... ids>
-    static constexpr auto get_offset(std::index_sequence<ids...>){
-        return offset_list_type{ member_t<S, ids>::offset... };
-    }
-    
-    template <size_t... ids>
-    static auto get_ptrs(std::index_sequence<ids...>){
+    static constexpr auto get_ptrs(std::index_sequence<ids...>){
         return tuple_type{ member_t<S, ids>::ptr... };
     }
+
+    using tuple_type = decltype(struct_to_tuple(tag_t<S>{}));
+    static constexpr size_t member_count = std::tuple_size_v<tuple_type>;
+    using name_list_type = std::array<std::string, member_count>;
+    
+    static constexpr tuple_type ptrs = get_ptrs(
+        std::make_index_sequence<member_count>{}
+    );
+    static name_list_type names;
 
     template <size_t n = 0, typename N0 = std::string, typename... Args>
     static auto set_member_names(N0 n0 = "", Args... ns){
@@ -210,7 +246,9 @@ struct class_t{
             using member_type_as = decltype(_object.*std::get<n>(ptrs));
             if (member_t<S, n>::name == nx){
                 if constexpr (is_stream_writable < member_type_as >)
-                    return (std::stringstream() << (_object.*std::get<n>(ptrs))).str();
+                    return (std::stringstream() << (
+                        _object.*std::get<n>(ptrs)
+                    )).str();
                 else
                     return "";
             }
@@ -240,7 +278,7 @@ struct class_t{
     }
 
     template <size_t n = 0> 
-    bool for_each(auto func){
+    bool constexpr for_each(auto func){
         if constexpr (n < member_count){
             func(_object.*std::get<n>(ptrs));
             return for_each< n + 1>(func);
@@ -250,18 +288,12 @@ struct class_t{
     }
 };
 template <typename S>
-class_t<S>::offset_list_type class_t<S>::offsets = class_t<S>::get_offset(
-    std::make_index_sequence<class_t<S>::member_count>{}
-);
-template <typename S>
-class_t<S>::tuple_type class_t<S>::ptrs = class_t<S>::get_ptrs(
-    std::make_index_sequence<class_t<S>::member_count>{}
-);
-template <typename S>
 class_t<S>::name_list_type class_t<S>::names;
+// End: POD reflection facilities
 
 template <typename S>
-    requires (std::is_class_v<S> && std::is_standard_layout_v<S> && std::is_trivial_v<S>)
+    requires (std::is_class_v<S> && 
+        std::is_standard_layout_v<S> && std::is_trivial_v<S>)
 std::ostream &operator<< (std::ostream &o, const S &a){
     auto stream_out_action = [&](auto &p){ o << p << ' '; };
     o << "[ ";
@@ -271,7 +303,8 @@ std::ostream &operator<< (std::ostream &o, const S &a){
 }
 
 template <typename S>
-    requires (std::is_class_v<S> && std::is_standard_layout_v<S> && std::is_trivial_v<S>)
+    requires (std::is_class_v<S> && 
+        std::is_standard_layout_v<S> && std::is_trivial_v<S>)
 std::istream &operator>> (std::istream &i, S &a){
     auto stream_in_action = [&](auto &p){ i >> p; };
     reflect(a).for_each(stream_in_action);
