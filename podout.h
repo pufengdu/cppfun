@@ -53,7 +53,7 @@ template <typename S>
 constexpr auto reflect(const S &s = {});
 
 template <typename S>
-struct void_struct_t{};
+struct null_t{};
 
 template <typename S>
 bool is_reflected = false;
@@ -80,6 +80,15 @@ std::string typename_to_string(){
     return r;
 }
 
+template <typename MP>
+struct extract_from_member_ptr;
+
+template <typename M, typename S>
+struct extract_from_member_ptr<M S::*>{ 
+    using class_type = std::remove_cvref_t<S>; 
+    using member_type = std::remove_cvref_t<M>;
+};
+
 // Begin: scope_cast
 // scope_cast<destination_scope_class>(source_scope_class_member_ptr)
 // This is to convert any pod struct member ptr to another class pod member ptr
@@ -88,32 +97,21 @@ std::string typename_to_string(){
 template <typename A, typename B>
 struct class_link: public A, public B{};
 
-template <typename MP>
-struct class_from_member_ptr;
-
-template <typename M, typename S>
-struct class_from_member_ptr<M S::*>{ using type = std::remove_cvref_t<S>; };
-
 // The member ptr p in the deep auto_t operator U was converted first by the 
-// injected friend funtions to the void_struct_t<REF_STRUCT>, which is empty.
-// By using the class_link, the member ptr of the void_struct_t<REF_STRUCT> was
+// injected friend funtions to the null_t<REF_STRUCT>, which is empty.
+// By using the class_link, the member ptr of the null_t<REF_STRUCT> was
 // transferred to the member ptr of the REF_STRUCT, which is TD in this func.
 // All these type conversions happen at compile time. 
 template <typename TD>
 constexpr auto scope_cast(const auto &p){
     using MP = std::remove_cvref_t<decltype(p)>;
-    using S = typename class_from_member_ptr<MP>::type;
+    using D = std::remove_cvref_t<TD>;
+    using S = typename extract_from_member_ptr<MP>::class_type;
+    using M = typename extract_from_member_ptr<MP>::member_type;
+    using SL = class_link <D, S>;
     static_assert(std::is_empty_v<S>,
         "The scope_cast needs a member ptr in an empty class");
-    using D = std::remove_cvref_t<TD>;
-    using M = std::remove_cvref_t<
-        decltype(std::declval<S>().*std::declval<MP>())
-    >;
-    using scope_link_t = class_link < D, S >;
-    return 
-        static_cast<M (D::*)>(
-            static_cast<M (scope_link_t::*)>(p)
-        );
+    return static_cast<M (D::*)>(static_cast<M (SL::*)>(p));
 };
 // End: scope_cast
 
@@ -127,14 +125,14 @@ constexpr auto scope_cast(const auto &p){
 // Or, you should add -Wno-non-template-friend to your compile options. I assume
 // you are using GCC.
 template <typename S>
-struct tag_t{
-    friend auto constexpr struct_to_tuple(tag_t<S>);
+struct class_tag_t{
+    friend auto constexpr struct_to_tuple(class_tag_t<S>);
 };
 
 template <typename S, typename Tp>
-struct make_tuple_from_struct{
-    make_tuple_from_struct(){ is_reflected< S > = true; }
-    friend auto constexpr struct_to_tuple(tag_t<S>){ return Tp{}; }
+struct save_class_type_as_tuple{
+    save_class_type_as_tuple(){ is_reflected< S > = true; }
+    friend auto constexpr struct_to_tuple(class_tag_t<S>){ return Tp{}; }
 };
 
 template <typename S, size_t I>
@@ -143,22 +141,30 @@ struct member_tag_t{
     friend auto constexpr member_type(member_tag_t<S, I>);
 };
 
-template <typename S, size_t I, typename M, typename Mp, Mp p >
+template <typename S, size_t I, auto p>
 struct save_member_type{
+    using MP = std::remove_cvref_t<decltype(p)>;
+    using M = typename extract_from_member_ptr<MP>::member_type;
+    using C = typename extract_from_member_ptr<MP>::class_type;
+    static_assert(std::is_base_of_v<null_t<S>, C>, "Unable to save pointers");
     friend auto constexpr member_ptr_type(member_tag_t<S, I>){ 
-        return static_cast <M void_struct_t<S>::* >(p);
+        return static_cast <M null_t<S>::* >(p);
     }
     friend auto constexpr member_type(member_tag_t<S, I>){ return M{}; }
 };
 // End: Friend injections
 
 // Begin: POD reflection facilities
-template <typename S, size_t n = 0, typename M = void_struct_t<S>, 
-    typename... Ts > 
-    requires (std::is_trivial_v<M> && std::is_standard_layout_v<S>)
+template <typename BS, typename TM>
+struct member_type_sequence: public BS{
+    TM _v;
+};
+
+template <typename S, size_t n = 0, typename B = null_t<S>, typename... Ts> 
+    requires (std::is_trivial_v<B> && std::is_standard_layout_v<S>)
 struct auto_t{
     template <typename U> 
-        requires (std::is_standard_layout_v<U>)
+        requires (std::is_standard_layout_v<U> && std::is_trivial_v<U>)
     constexpr operator U() noexcept {
         if constexpr (std::is_class_v<U>){
             if (!is_reflected< U >)
@@ -166,21 +172,19 @@ struct auto_t{
         }
         // Add members according to S one after one to get member offsets. I 
         // have no idea whether this will be the same as S in all cases, if S is
-        // POD. Surely, this relies on optimizations for empty base classes. The 
-        // type_S object is trivial. All offsets are obtained by inheritence to 
-        // construct a struct according to S. The member pointer to each member 
-        // is binary compatible to its offset.
-        struct type_S: public M { U _t; };
-
-        // This saves the n-th member of S by using pointer-to-member of type_S.
-        // Since type_S is not S, we can not save offsets of each member in a 
-        // constexpr static member. But, this will delay the specialization of 
-        // member_t<S, n>
-        save_member_type<S, n, U, decltype(&type_S::_t), &type_S::_t>{};
+        // POD. Surely, this relies on optimizations for empty base classes. 
+        // The member_sequence object is trivial. All offsets are obtained by 
+        // inheritence to construct a struct according to S. The member pointer
+        // to each member is binary compatible to its offset.
+        using member_sequence = member_type_sequence<B, U>;
+        
+        // This saves the n-th member of S by using pointer-to-member of 
+        // member_sequence. 
+        save_member_type<S, n, &member_sequence::_v>{};
         
         // Try construction incrementally, to iterate over all members of S 
         // recursively.
-        using next_t = auto_t<S, n + 1, type_S, Ts..., U>;
+        using next_t = auto_t<S, n + 1, member_sequence, Ts..., U>;
         if constexpr (is_aggregatable<S, Ts..., U, next_t> )
         // By instantiating S with more initilizers, we use the U() function to 
         // iterate over types of all S members.
@@ -190,7 +194,7 @@ struct auto_t{
         // members of S by using friend injections. Below struct MUST be called 
         // in this way or using the sizeof() expression, so that causing friend
         // functions to be injected into the file scope.
-            make_tuple_from_struct <S, std::tuple<Ts (S::*)..., U (S::*)> >{};
+            save_class_type_as_tuple<S, std::tuple<Ts (S::*)..., U (S::*)> >{};
         return U{};
     }
 };
@@ -199,7 +203,7 @@ template <typename S, size_t I>
 struct member_t{
     using type = decltype(member_type(member_tag_t<S, I>{}));
     static constexpr type S::* ptr = scope_cast<S>(
-        member_ptr_type(member_tag_t <S, I>{})
+        member_ptr_type(member_tag_t<S, I>{})
     );
     static std::string name;
 };
@@ -219,7 +223,7 @@ struct class_t{
         return tuple_type{ member_t<S, ids>::ptr... };
     }
 
-    using tuple_type = decltype(struct_to_tuple(tag_t<S>{}));
+    using tuple_type = decltype(struct_to_tuple(class_tag_t<S>{}));
     static constexpr size_t member_count = std::tuple_size_v<tuple_type>;
     using name_list_type = std::array<std::string, member_count>;
     
@@ -291,6 +295,7 @@ template <typename S>
 class_t<S>::name_list_type class_t<S>::names;
 // End: POD reflection facilities
 
+// Begin: Seiralization operators
 template <typename S>
     requires (std::is_class_v<S> && 
         std::is_standard_layout_v<S> && std::is_trivial_v<S>)
@@ -310,6 +315,7 @@ std::istream &operator>> (std::istream &i, S &a){
     reflect(a).for_each(stream_in_action);
     return i;
 }
+// End: Seiralization operators
 
 template <typename S>
 constexpr auto reflect(const S &s){
