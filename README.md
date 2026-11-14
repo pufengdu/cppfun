@@ -1,6 +1,10 @@
 # CPP fun snippets
 This repo is just for fun.
 
+## ansicolor.cpp
+
+A little demo for newbies to see how to add colors for console outputs.
+
 ## arrayout.cpp
 
 A common stream output template for all types of array. It is just a toy.
