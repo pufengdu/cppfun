@@ -1,5 +1,5 @@
 /*
- * main.cpp -- a self-contained demo of ANSI colour escape sequences.
+ * ansicolor.cpp -- a self-contained demo of ANSI colour escape sequences.
  *
  * Copyright (C) 2026 Pufeng Du <PufengDu@gmail.com>
  * Copyright (C) 2026 DeepSeek V4-Flash
